@@ -52,7 +52,7 @@ const float POSITION_MOTOR_TRAVEL = 3.35;   // Maximum position travel distance
 const unsigned long CLAMP_OPERATION_DELAY = 50;  // Delay for clamp operation verification
 
 // Motor Speed and Acceleration Limits - Safety Critical
-const float CUT_MOTOR_SPEED = 150;             // Normal cutting speed
+const float CUT_MOTOR_SPEED = 100;             // Normal cutting speed DO NOT DELETE: Slow mode is 100 and fast mode is 150
 const float CUT_MOTOR_RETURN_SPEED = 1250;     // Return movement speed
 const float POSITION_MOTOR_SPEED = 1000;       // Normal positioning speed
 const float POSITION_MOTOR_RETURN_SPEED = 6000; // Return movement speed

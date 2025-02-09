@@ -2,10 +2,43 @@
 #include <Bounce2.h>
 #include <AccelStepper.h>
 
+// ? ===============================================================================
+// ? 🔄 CUTTING CYCLE SEQUENCE
+// ? ===============================================================================
 /*
- * AUTOMATED TABLE SAW CONTROL SYSTEM
+ * 1. 🏁 Initial Position Check:
+ *    - 🔴🔴 Both clamps engaged (HIGH)
+ *    - 🎯 Cut motor at home position (0)
+ *    - 📐 Position motor at home position (0)
  * 
- * SAFETY NOTICE: PLEASE DO NOT DELETE OR MODIFY ANYTHING HERE
+ * 2. 🚀 Cycle Start:
+ *    - ✅ Verify start cycle switch remains pressed
+ *    - 🔴🔴 Ensure both clamps are engaged
+ *    - ⏱️ Wait for clamp operation verification
+ * 
+ * 3. 🔪 Cut Sequence:
+ *    - 🎯 Move cut motor forward (9", ⚡100, 📈2000)
+ *    - ⏱️ Wait for cut completion
+ *    - 🔵 Retract position clamp
+ *    - ⏱️ Wait for clamp operation
+ * 
+ * 4. 🏠 Return Sequence:
+ *    - 🎯 Return cut motor (⚡1250, 📈2000)
+ *    - 🎯 Return position motor (⚡6000, 📈5000)
+ *    - 🔴 Re-engage position clamp
+ *    - ⏱️ Wait for clamp engagement
+ *    - 🔵 Disengage wood secure clamp
+ * 
+ * 5. 📏 Position Sequence:
+ *    - 🎯 Move position motor (3.35", ⚡6000, 📈5000)
+ *    - ⏱️ Wait for stabilization
+ */
+
+// ! ===============================================================================
+// ! 🛑 SAFETY NOTICE: DO NOT MODIFY WITHOUT APPROVAL
+// ! ===============================================================================
+/*
+ * AUTOMATED TABLE SAW CONTROL SYSTEM - STAGE 2
  * This code controls an automated table saw cutting system. Safety is the absolute priority.
  * - Code clarity and reliability take precedence over processing efficiency
  * - All functions are written to be as explicit and straightforward as possible
@@ -15,8 +48,95 @@
  * - All cylinders require a HIGH output to disengage
  * - Bounce2 library is used for switch debouncing with a 20ms debounce time
  * - All code should be very very easy to understand for a beginner programmer
- * - my switches are configured where one side is connected to 5v and the other side splits into 10k resistor to ground at its signal pin
+ * - Switches are configured where one side is connected to 5v and the other side splits into 10k resistor to ground at its signal pin
  */
+
+// * ===============================================================================
+// * 📝 SYSTEM DOCUMENTATION
+// * ===============================================================================
+/*
+ * MAINTENANCE NOTE: This sequence documentation should be kept in sync with code implementation.
+ * Please update this section when modifying the cycle steps or timing values.
+ * 
+ * 🔄 CUTTING CYCLE SEQUENCE:
+ * 
+ * 1. 🏁 Initial Position Check:
+ *    - 🔴🔴 Both clamps engaged (HIGH)
+ *    - 🎯 Cut motor at home position (0)
+ *    - 📐 Position motor at home position (0)
+ * 
+ * 2. 🚀 Cycle Start:
+ *    - ✅ Verify start cycle switch remains pressed
+ *    - 🔴🔴 Ensure both clamps are engaged
+ *    - ⏱️ Wait for clamp operation verification
+ * 
+ * 3. 🔪 Cut Sequence:
+ *    - 🎯 Move cut motor forward (9 inches, ⚡100, 📈2000)
+ *    - ⏱️ Wait for cut completion
+ *    - 🔵 Retract position clamp
+ *    - ⏱️ Wait for clamp operation
+ * 
+ * 4. 🏠 Return Sequence:
+ *    - 🎯 Return cut motor (⚡1250, 📈2000)
+ *    - 🎯 Return position motor (⚡6000, 📈5000)
+ *    - 🔴 Re-engage position clamp
+ *    - ⏱️ Wait for clamp engagement
+ *    - 🔵 Disengage wood secure clamp
+ * 
+ * 5. 📏 Position Sequence:
+ *    - 🎯 Move position motor (3.35 inches, ⚡6000, 📈5000)
+ *    - ⏱️ Wait for stabilization
+ * 
+ * ⚠️ Safety Features:
+ * - Hardware emergency stop cuts all power
+ * - Multiple software safety checks
+ * - Debounced switch readings
+ * - Explicit clamp state verification
+ * 
+ * 📝 Note: All timing values are defined as constants at the top of file
+ */
+
+// * ===============================================================================
+// * 🏠 HOMING SEQUENCE
+// * ===============================================================================
+/*
+ * 1. 🔄 Initial Check:
+ *    - 📊 Report initial switch states
+ *    - 🔍 Check if motors are already at home position
+ *    - ⚡ Configure motors for homing speeds
+ * 
+ * 2. 🎯 Cut Motor Homing:
+ *    - 🔄 Move cut motor towards home switch (⚡250, 📈2000)
+ *    - ⏱️ Monitor switch state with debouncing
+ *    - ✋ Stop immediately when switch is activated
+ *    - 📍 Set current position as zero
+ *    - 📢 Report homing status
+ * 
+ * 3. 📏 Position Motor Homing:
+ *    - 🔄 Move position motor towards home switch (⚡1000, 📈5000)
+ *    - 🔓 Position clamp disengaged during homing
+ *    - ⏱️ Monitor switch state with debouncing
+ *    - ✋ Stop when switch is activated
+ *    - 📍 Set current position as zero
+ *    - 🔒 Engage position clamp
+ *    - 📢 Report completion
+ * 
+ * 4. ✅ Completion Checks:
+ *    - 🔍 Verify both motors are homed
+ *    - 🔒 Confirm clamp states
+ *    - 📢 Report system ready status
+ * 
+ * ⚠️ Safety Features During Homing:
+ * - 🐌 Reduced motor speeds
+ * - ⏱️ Debounced switch readings
+ * - 🛑 Immediate stop on switch activation
+ * - 📊 Continuous status reporting
+ * - ⚡ Proper acceleration control
+ */
+
+// ! ===============================================================================
+// ! ⚠️ HARDWARE CONFIGURATION - DO NOT MODIFY
+// ! ===============================================================================
 
 // Pin Definitions - Motors (DO NOT MODIFY - Hardware Dependent)
 const int PIN_CUT_MOTOR_PUL = 11;      // Cut motor pulse pin
@@ -52,7 +172,7 @@ const float POSITION_MOTOR_TRAVEL = 3.35;   // Maximum position travel distance
 const unsigned long CLAMP_OPERATION_DELAY = 50;  // Delay for clamp operation verification
 
 // Motor Speed and Acceleration Limits - Safety Critical
-const float CUT_MOTOR_SPEED = 100;             // Normal cutting speed DO NOT DELETE: Slow mode is 100 and fast mode is 150
+const float CUT_MOTOR_SPEED = 100;             // Normal cutting speed DO NOT DELETE: Slow mode is 100 and fast mode is 115
 const float CUT_MOTOR_RETURN_SPEED = 1250;     // Return movement speed
 const float POSITION_MOTOR_SPEED = 1000;       // Normal positioning speed
 const float POSITION_MOTOR_RETURN_SPEED = 6000; // Return movement speed
